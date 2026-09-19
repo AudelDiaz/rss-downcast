@@ -124,8 +124,11 @@ def _parse_since(value) -> datetime | None:
 @app.command()
 def sync(
     ctx: typer.Context,
-    url: str = typer.Argument(..., help='RSS feed URL.'),
-    save_dir: str = typer.Argument(..., help='Directory for downloaded files.'),
+    url: str | None = typer.Argument(None, help='RSS feed URL (omit with --feed-id).'),
+    save_dir: str | None = typer.Argument(
+        None, help='Directory for downloaded files (defaults to stored dir with --feed-id).'
+    ),
+    feed_id: int | None = typer.Option(None, '--feed-id', help='Sync a tracked feed by ID.'),
     num_episodes: int | None = typer.Option(None, '--num-episodes', '--num', metavar='N'),
     since: str | None = typer.Option(None, '--since', metavar='YYYY-MM-DD'),
     all: bool = typer.Option(False, '--all', help='Download full archive on new feeds.'),
@@ -166,6 +169,19 @@ def sync(
 
     db_path = _db_path(ctx)
     with db_mod.get_conn(db_path) as conn:
+        if feed_id is not None:
+            stored_url = db_mod.get_feed_url_by_id(conn, feed_id)
+            if not stored_url:
+                raise typer.BadParameter(f'No feed found with --feed-id {feed_id}')
+            url = stored_url
+            if save_dir is None:
+                save_dir = db_mod.get_feed_save_dir(conn, feed_id)
+                if save_dir:
+                    logging.info('Using stored save directory for feed %s: %s', feed_id, save_dir)
+        if not url:
+            raise typer.BadParameter('URL is required unless --feed-id is used')
+        if not save_dir:
+            raise typer.BadParameter('SAVE_DIR is required (or store one via `feeds add URL DIR`)')
         _, _, feed_id = sync_mod.sync_url(
             url,
             save_dir,

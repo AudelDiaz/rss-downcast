@@ -88,3 +88,26 @@ def test_prune_to_keep_last_returns_counts(mod, tmp_path):
     conn.commit()
     assert mod.prune_to_keep_last(conn, fid, str(d)) == (1, 0)
     conn.close()
+
+
+def test_sync_by_feed_id_resolution(tmp_path):
+    from typer.testing import CliRunner
+
+    from rss_downcast import db as db_mod
+    from rss_downcast.cli import app
+
+    db = str(tmp_path / 't.db')
+    conn = db_mod.connect(db)
+    fid = db_mod.get_or_create_feed(conn, 'http://a/f', 'A', save_dir=str(tmp_path / 'd'))
+    conn.close()
+    assert fid == 1
+
+    # Unknown ID is a clean error
+    r = CliRunner().invoke(app, ['--db', db, 'sync', '--feed-id', '999'])
+    assert r.exit_code != 0
+    assert '999' in r.output
+
+    # No URL and no --feed-id is a clean error
+    r = CliRunner().invoke(app, ['--db', db, 'sync'])
+    assert r.exit_code != 0
+    assert 'URL' in r.output

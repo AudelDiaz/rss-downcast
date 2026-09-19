@@ -105,6 +105,7 @@ CLI:
 
 ```bash
 rss-downcast sync URL DIR [--num N --since DATE --all --dry-run --save-text]
+rss-downcast sync --feed-id ID [DIR]  # reuses stored URL/save-dir
 rss-downcast feeds list | add URL [DIR] | remove ID [--delete-files]
 rss-downcast prune DIR [--keep N --keep-last --max-age 30d --max-size 2G]
 rss-downcast opml export FILE | import FILE

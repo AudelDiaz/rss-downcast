@@ -19,6 +19,7 @@ Requires Python ≥3.11. Runtime deps (audited, `pip-audit` clean):
 
 ```bash
 rss-downcast sync URL DIR [--num N --since YYYY-MM-DD --all --dry-run --save-text]
+rss-downcast sync --feed-id ID [DIR]   # tracked feed: reuses stored URL and save dir
 rss-downcast feeds list
 rss-downcast feeds add URL [DIR]
 rss-downcast feeds remove ID [--delete-files]
