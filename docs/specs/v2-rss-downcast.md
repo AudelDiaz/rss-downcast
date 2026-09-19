@@ -95,7 +95,10 @@ Módulos:
   `set_mp3_tags()`, `save_text_file()`, `entry_date_prefix()`.
 - `retention.py` — `parse_size()`, `parse_max_age()`, `prune_feed()`.
 - `opml.py` — export/import.
-- `sync.py` — orquestación `run_sync()` (select → download → tag → DB).
+- `sync.py` — orquestación `run_sync()` (select → download → tag → DB) y
+  `sync_url()` (fetch → ensure feed → run_sync, retorna
+  `(considered, downloaded, feed_id)`). La CLI usa `sync_url` + `prune_feed`
+  dentro de `db.get_conn()`; sin conexiones sueltas.
 - `cli.py` — Typer app + subcomandos. `__init__.py` expone `__version__=2.0.0`.
 
 CLI:

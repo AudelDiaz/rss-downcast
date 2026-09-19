@@ -8,7 +8,9 @@ from datetime import datetime
 from rss_downcast import db as db_mod
 from rss_downcast.download import download_file
 from rss_downcast.feed import (
+    entry_datetime,
     feed_has_episodes,
+    fetch_feed,
     get_last_downloaded_date,
     is_audio_enclosure,
     parse_feed,
@@ -91,9 +93,7 @@ def run_sync(
     episodes_to_download = []
     for entry, link in episodes_to_consider:
         guid = entry.get('id', link.href)
-        cursor.execute(
-            'SELECT guid FROM episodes WHERE feed_id = ? AND guid = ?', (feed_id, guid)
-        )
+        cursor.execute('SELECT guid FROM episodes WHERE feed_id = ? AND guid = ?', (feed_id, guid))
         if not cursor.fetchone():
             episodes_to_download.append((entry, link))
 
@@ -120,8 +120,6 @@ def run_sync(
         full_path = unique_filepath(save_dir, filename, ext)
         logging.info('Downloading audio file %s of %s: %s', i + 1, total, filename)
         if download_file(link.href, full_path, client=client):
-            from rss_downcast.feed import entry_datetime
-
             guid = entry.get('id', link.href)
             pub_date = entry_datetime(entry)
             published_iso = pub_date.strftime('%Y-%m-%dT%H:%M:%S') if pub_date else ''
@@ -156,9 +154,7 @@ def run_sync(
             logging.info('Sleeping for 1 second...')
             time.sleep(1)
 
-    logging.info(
-        'Completed! Successfully downloaded %s / %s audio files', successful, total
-    )
+    logging.info('Completed! Successfully downloaded %s / %s audio files', successful, total)
     return (len(episodes_to_consider), successful)
 
 
@@ -173,10 +169,7 @@ def sync_url(
     dry_run=False,
     client=None,
 ):
-    """Fetch URL, ensure feed row, run sync. Returns (considered, downloaded)."""
-
-    from rss_downcast.feed import fetch_feed
-
+    """Fetch URL, ensure feed row, run sync. Returns (considered, downloaded, feed_id)."""
     os.makedirs(save_dir, exist_ok=True)
     content = fetch_feed(rss_url, client=client)
     feed = parse_feed(content)
@@ -187,7 +180,7 @@ def sync_url(
         feed_id = db_mod.get_or_create_feed(
             conn, rss_url, feed.feed.get('title', 'N/A'), save_dir=save_dir
         )
-        return run_sync(
+        considered, downloaded = run_sync(
             conn,
             feed_id,
             feed,
@@ -199,6 +192,7 @@ def sync_url(
             dry_run=dry_run,
             client=client,
         )
+        return (considered, downloaded, feed_id)
     finally:
         if close_conn:
             conn.close()

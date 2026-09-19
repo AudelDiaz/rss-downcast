@@ -14,15 +14,17 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v5
-      - name: Create env and install deps
+      - name: Create env and install package
         run: |
           uv venv .venv
-          uv pip install --python .venv/bin/python -r requirements.txt
+          uv pip install --python .venv/bin/python -e .
           uv pip install --python .venv/bin/python pytest==9.1.1 ruff==0.16.6
       - name: Lint
         run: .venv/bin/python -m ruff check . && .venv/bin/python -m ruff format --check .
       - name: Unit tests
         run: .venv/bin/python -m pytest tests/unit -v
+      - name: Audit dependencies
+        run: uvx pip-audit
 
   integration:
     name: Integration tests
@@ -31,10 +33,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v5
-      - name: Create env and install deps
+      - name: Create env and install package
         run: |
           uv venv .venv
-          uv pip install --python .venv/bin/python -r requirements.txt
+          uv pip install --python .venv/bin/python -e .
           uv pip install --python .venv/bin/python pytest==9.1.1 ruff==0.16.6
       - name: Integration tests
         run: .venv/bin/python -m pytest tests/integration -v

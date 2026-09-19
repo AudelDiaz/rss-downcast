@@ -51,11 +51,7 @@ def download_file(url, filename, session=None, client=None, retries=3, sleep_fn=
                     encoded = response.headers.get('Content-Encoding')
                     expected = response.headers.get('Content-Length')
                     try:
-                        expected = (
-                            int(expected)
-                            if expected is not None and not encoded
-                            else None
-                        )
+                        expected = int(expected) if expected is not None and not encoded else None
                     except (TypeError, ValueError):
                         expected = None
                     written = 0
@@ -64,13 +60,9 @@ def download_file(url, filename, session=None, client=None, retries=3, sleep_fn=
                             if chunk:
                                 written += file.write(chunk)
                     if expected is not None and written != expected:
-                        raise httpx.HTTPError(
-                            f'Expected {expected} bytes, received {written}.'
-                        )
+                        raise httpx.HTTPError(f'Expected {expected} bytes, received {written}.')
                 if attempt > 1:
-                    logging.info(
-                        'Download succeeded after %s retries: %s', attempt - 1, filename
-                    )
+                    logging.info('Download succeeded after %s retries: %s', attempt - 1, filename)
                 else:
                     logging.info('Downloaded: %s', filename)
                 return True
@@ -85,9 +77,7 @@ def download_file(url, filename, session=None, client=None, retries=3, sleep_fn=
                         logging.warning('Could not remove partial file: %s', filename)
                 return False
             except _NETWORK_ERRORS as e:
-                logging.warning(
-                    'Error downloading file (attempt %s/%s): %s', attempt, retries, e
-                )
+                logging.warning('Error downloading file (attempt %s/%s): %s', attempt, retries, e)
                 if os.path.exists(filename):
                     try:
                         os.remove(filename)

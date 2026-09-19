@@ -47,12 +47,12 @@ cannot negate a `true` config value for one run.
 
 ```bash
 uv venv .venv
-uv pip install -r requirements.txt
+uv pip install -e .
 uv pip install pytest ruff
 uv run pytest tests/unit -v
 uv run pytest tests/integration -v
 uv run ruff check .
-uvx pip-audit -r requirements.txt
+uvx pip-audit
 ```
 
 Specs: [`docs/specs/`](docs/specs/) (`v2-rss-downcast.md` is the v2 north star).

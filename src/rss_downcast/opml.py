@@ -3,16 +3,13 @@
 import logging
 import os
 import xml.etree.ElementTree as ET
-from pathlib import Path
 
 
 def export_opml(conn, output_path):
     """Export all feeds to an OPML file. Returns feed count."""
     if output_path is None:
         raise ValueError('output_path required')
-    rows = conn.execute(
-        'SELECT feed_url, feed_title FROM feeds ORDER BY feed_id'
-    ).fetchall()
+    rows = conn.execute('SELECT feed_url, feed_title FROM feeds ORDER BY feed_id').fetchall()
 
     opml = ET.Element('opml', version='2.0')
     head = ET.SubElement(opml, 'head')
@@ -82,9 +79,3 @@ def import_opml(conn, input_path):
     conn.commit()
     logging.info('Imported %s feed(s), skipped %s existing', imported, skipped)
     return (imported, skipped)
-
-
-def export_opml_to_path(db_path_conn_factory, output_path):
-    """Helper used by CLI: open conn via factory, export, close. Returns count."""
-    with db_path_conn_factory() as conn:
-        return export_opml(conn, Path(output_path))

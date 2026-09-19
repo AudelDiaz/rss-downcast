@@ -36,7 +36,7 @@ Classify each task FIRST, then run only the phases its size requires.
 
 - **S (small)** — single file, no logic change (typo, comment, config value,
   one string). Implement only. No spec/review/tests unless the diff changes logic.
-- **S-docs (docs-only)** — only `*.md`, `docs/**`, `config.example.toml`, `CHANGELOG.md`, `README.md`. No spec, no tests, no adversarial review — only `ruff format --check` if needed. If diff touches `*.py`, `pyproject.toml`, `requirements.txt`, or `.github/**`, re-classify as M/L. Detection: `git diff --stat --name-only` all paths match `^(README|CHANGELOG|config\.example\.toml|docs/|.*\.md$)`.
+- **S-docs (docs-only)** — only `*.md`, `docs/**`, `config.example.toml`, `CHANGELOG.md`, `README.md`. No spec, no tests, no adversarial review — only `ruff format --check` if needed. If diff touches `*.py`, `pyproject.toml`, or `.github/**`, re-classify as M/L. Detection: `git diff --stat --name-only` all paths match `^(README|CHANGELOG|config\.example\.toml|docs/|.*\.md$)`.
 - **M (medium)** — multiple files OR new logic / branching / thresholds.
   Phases: understand → implement → test → adversarial review. Write a spec
   (`sdd`, save to `docs/specs/`); dispatch an adversarial review on the diff.
@@ -61,7 +61,7 @@ every task.
 - State: `~/.local/share/rss-downcast/downloads.db` (or `--db`).
   Tables `feeds`, `episodes` (FK CASCADE, `UNIQUE(feed_id, guid)`).
 - Env: local `.venv` (Python 3.14). Deps: typer, feedparser, httpx, mutagen.
-  Audit: `uvx pip-audit -r requirements.txt`. Spec: `docs/specs/v2-rss-downcast.md`.
+  Audit: `uvx pip-audit`. Spec: `docs/specs/v2-rss-downcast.md`.
 - Tests: `tests/unit` + `tests/integration` via `tests/conftest.py `mod`` compat
   namespace; `pythonpath = ["src"]` in pyproject. Run `pytest tests/ -q`,
   `ruff check .`.

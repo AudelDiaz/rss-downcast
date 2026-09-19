@@ -94,12 +94,6 @@ def _parse_and_download(
     )
 
 
-def _main(argv=None):  # pragma: no cover - replaced by Typer; kept for import surface
-    from rss_downcast.cli import app
-
-    app()
-
-
 @pytest.fixture(scope='session')
 def mod():
     """Return the compat namespace, built once per session."""
@@ -144,7 +138,6 @@ def mod():
         parse_max_age=_retention.parse_max_age,
         prune_feed=_retention.prune_feed,
         prune_to_keep_last=_retention.prune_to_keep_last,
-        # sync + cli
+        # sync
         parse_and_download=_parse_and_download,
-        main=_main,
     )

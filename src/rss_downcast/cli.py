@@ -13,7 +13,10 @@ import typer
 
 from rss_downcast import __version__
 from rss_downcast import db as db_mod
+from rss_downcast import sync as sync_mod
 from rss_downcast.config import find_config_path, load_config
+from rss_downcast.opml import export_opml, import_opml
+from rss_downcast.retention import parse_max_age, parse_size, prune_feed
 
 app = typer.Typer(
     name='rss-downcast',
@@ -134,9 +137,6 @@ def sync(
     max_size: str | None = typer.Option(None, '--max-size', metavar='SIZE'),
 ):
     """Sync a feed: download new episodes, then optionally prune."""
-    from rss_downcast import sync as sync_mod
-    from rss_downcast.retention import parse_max_age, parse_size, prune_feed
-
     num_episodes = _eff(ctx, 'num_episodes', num_episodes)
     since_s = _eff(ctx, 'since', since)
     full_history = _eff(ctx, 'all', all, False)
@@ -165,21 +165,11 @@ def sync(
     since_date = _parse_since(since_s)
 
     db_path = _db_path(ctx)
-    conn = db_mod.connect(db_path)
-    try:
-        os.makedirs(save_dir, exist_ok=True)
-        from rss_downcast.feed import fetch_feed, parse_feed
-
-        content = fetch_feed(url)
-        feed = parse_feed(content)
-        feed_id = db_mod.get_or_create_feed(
-            conn, url, feed.feed.get('title', 'N/A'), save_dir=save_dir
-        )
-        sync_mod.run_sync(
-            conn,
-            feed_id,
-            feed,
+    with db_mod.get_conn(db_path) as conn:
+        _, _, feed_id = sync_mod.sync_url(
+            url,
             save_dir,
+            conn=conn,
             save_text=save_text,
             num_episodes=num_episodes,
             since=since_date,
@@ -197,18 +187,13 @@ def sync(
                 max_size=max_size_bytes,
                 dry_run=dry_run,
             )
-    finally:
-        conn.close()
 
 
 @feeds_app.command('list')
 def feeds_list(ctx: typer.Context):
     """List all tracked feeds."""
-    conn = db_mod.connect(_db_path(ctx))
-    try:
+    with db_mod.get_conn(_db_path(ctx)) as conn:
         rows = db_mod.list_feeds(conn)
-    finally:
-        conn.close()
     if not rows:
         typer.echo('No feeds found in database.')
         return
@@ -223,11 +208,8 @@ def feeds_add(
     save_dir: str | None = typer.Argument(None, help='Save directory (optional).'),
 ):
     """Track a new feed without downloading."""
-    conn = db_mod.connect(_db_path(ctx))
-    try:
+    with db_mod.get_conn(_db_path(ctx)) as conn:
         feed_id = db_mod.get_or_create_feed(conn, url, url, save_dir=save_dir)
-    finally:
-        conn.close()
     typer.echo(f'Added feed {feed_id}')
 
 
@@ -238,11 +220,8 @@ def feeds_remove(
     delete_files: bool = typer.Option(False, '--delete-files', help='Delete episode files.'),
 ):
     """Remove a feed and its episode rows."""
-    conn = db_mod.connect(_db_path(ctx))
-    try:
+    with db_mod.get_conn(_db_path(ctx)) as conn:
         ok = db_mod.remove_feed(conn, feed_id, delete_files=delete_files)
-    finally:
-        conn.close()
     if not ok:
         raise typer.BadParameter(f'No feed found with id {feed_id}')
     typer.echo(f'Removed feed {feed_id}')
@@ -260,8 +239,6 @@ def prune(
     dry_run: bool = typer.Option(False, '--dry-run'),
 ):
     """Prune episode files/rows for a feed directory."""
-    from rss_downcast.retention import parse_max_age, parse_size, prune_feed
-
     keep = _eff(ctx, 'keep', keep)
     keep_last = _eff(ctx, 'keep_last', keep_last, False)
     max_age_s = _eff(ctx, 'max_age', max_age)
@@ -282,16 +259,11 @@ def prune(
     if keep is None and not keep_last and max_age_delta is None and max_size_bytes is None:
         raise typer.BadParameter('Nothing to do: pass --keep, --keep-last, --max-age or --max-size')
 
-    conn = db_mod.connect(_db_path(ctx))
-    try:
+    with db_mod.get_conn(_db_path(ctx)) as conn:
         if feed_id is None:
-            rows = conn.execute(
-                'SELECT feed_id, save_dir FROM feeds'
-            ).fetchall()
+            rows = conn.execute('SELECT feed_id, save_dir FROM feeds').fetchall()
             abs_target = os.path.abspath(save_dir)
-            matches = [
-                r[0] for r in rows if r[1] and os.path.abspath(r[1]) == abs_target
-            ]
+            matches = [r[0] for r in rows if r[1] and os.path.abspath(r[1]) == abs_target]
             if not matches:
                 raise typer.BadParameter(f'No feed found with save_dir {save_dir}')
             feed_id = matches[0]
@@ -305,8 +277,6 @@ def prune(
             max_size=max_size_bytes,
             dry_run=dry_run,
         )
-    finally:
-        conn.close()
     typer.echo(f'Pruned: kept {kept}, removed {removed}')
 
 
@@ -316,13 +286,8 @@ def opml_export(
     output: str = typer.Argument(..., help='Output OPML file.'),
 ):
     """Export feeds to OPML."""
-    from rss_downcast.opml import export_opml
-
-    conn = db_mod.connect(_db_path(ctx))
-    try:
+    with db_mod.get_conn(_db_path(ctx)) as conn:
         count = export_opml(conn, output)
-    finally:
-        conn.close()
     typer.echo(f'Exported {count} feed(s) to {output}')
 
 
@@ -332,13 +297,8 @@ def opml_import(
     input: str = typer.Argument(..., help='Input OPML file.'),
 ):
     """Import feeds from OPML."""
-    from rss_downcast.opml import import_opml
-
-    conn = db_mod.connect(_db_path(ctx))
-    try:
+    with db_mod.get_conn(_db_path(ctx)) as conn:
         imported, skipped = import_opml(conn, input)
-    finally:
-        conn.close()
     typer.echo(f'Imported {imported} feed(s), skipped {skipped} existing')
 
 
