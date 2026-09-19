@@ -1,0 +1,18 @@
+# Example config for rss-downcast
+# Place at ./rss-downcast.toml or ~/.config/rss-downcast/config.toml
+# All keys under [defaults] map to CLI flags (CLI always wins).
+
+[defaults]
+# num_episodes = 5
+# since = "2024-01-01"
+# all = false
+# save_text = false
+# dry_run = false
+# keep = 5
+# keep_last = false
+# max_age = "30d"
+# max_size = "2G"
+# verbose = false
+# quiet = false
+keep = 5
+verbose = false
