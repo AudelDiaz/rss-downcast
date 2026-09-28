@@ -277,3 +277,95 @@ def test_dateless_established_feed_not_blocked_by_guard(mod, http_server, tmp_pa
         '2002-10-02_newest_episode.mp3',
     ]
     conn.close()
+
+
+def _cli_guids(db_path):
+    import sqlite3
+
+    conn = sqlite3.connect(str(db_path))
+    try:
+        return {row[0] for row in conn.execute('SELECT guid FROM episodes')}
+    finally:
+        conn.close()
+
+
+def test_cli_sync_end_to_end(http_server, tmp_path):
+    """The real `sync` command (cli -> sync_url -> download over httpx) works."""
+    from typer.testing import CliRunner
+
+    from rss_downcast.cli import app
+
+    save_dir = tmp_path / 'cli-podcasts'
+    db_path = tmp_path / 'cli.db'
+    result = CliRunner().invoke(
+        app,
+        ['--db', str(db_path), 'sync', f'{http_server}/feed.xml', str(save_dir), '--all'],
+    )
+
+    assert result.exit_code == 0, result.output
+    assert _FeedHandler.download_count == {'ep-newest.mp3': 1, 'ep-older.mp3': 1}
+    assert sorted(p.name for p in save_dir.iterdir()) == [
+        '2002-10-01_older_episode.mp3',
+        '2002-10-02_newest_episode.mp3',
+    ]
+    assert _cli_guids(db_path) == {'newest-1', 'older-1'}
+
+
+def test_cli_sync_keep_last_prunes_within_same_run(http_server, tmp_path):
+    """`sync --all --keep-last` downloads then prunes in the same invocation."""
+    from typer.testing import CliRunner
+
+    from rss_downcast.cli import app
+
+    save_dir = tmp_path / 'cli-prune'
+    db_path = tmp_path / 'cli-prune.db'
+    result = CliRunner().invoke(
+        app,
+        [
+            '--db',
+            str(db_path),
+            'sync',
+            f'{http_server}/feed.xml',
+            str(save_dir),
+            '--all',
+            '--keep-last',
+        ],
+    )
+
+    assert result.exit_code == 0, result.output
+    assert sorted(p.name for p in save_dir.iterdir()) == ['2002-10-02_newest_episode.mp3']
+    assert _cli_guids(db_path) == {'newest-1'}
+
+
+def test_cli_sync_feed_id_reuses_stored_dir(http_server, tmp_path):
+    """`sync --feed-id` reuses the stored URL and save directory."""
+    import sqlite3
+
+    from typer.testing import CliRunner
+
+    from rss_downcast.cli import app
+
+    save_dir = tmp_path / 'cli-feedid'
+    db_path = tmp_path / 'cli-feedid.db'
+    runner = CliRunner()
+    first = runner.invoke(
+        app,
+        ['--db', str(db_path), 'sync', f'{http_server}/feed.xml', str(save_dir), '--all'],
+    )
+    assert first.exit_code == 0, first.output
+
+    conn = sqlite3.connect(str(db_path))
+    try:
+        feed_id = conn.execute('SELECT feed_id FROM feeds').fetchone()[0]
+    finally:
+        conn.close()
+
+    again = runner.invoke(app, ['--db', str(db_path), 'sync', '--feed-id', str(feed_id)])
+
+    assert again.exit_code == 0, again.output
+    # Already caught up: no re-download, stored directory reused.
+    assert _FeedHandler.download_count == {'ep-newest.mp3': 1, 'ep-older.mp3': 1}
+    assert sorted(p.name for p in save_dir.iterdir()) == [
+        '2002-10-01_older_episode.mp3',
+        '2002-10-02_newest_episode.mp3',
+    ]

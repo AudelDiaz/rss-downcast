@@ -57,7 +57,8 @@ every task.
 ## Project specifics (rss-downcast v2)
 
 - Typer CLI package: `src/rss_downcast/` (`cli`, `config`, `db`, `feed`,
-  `download`, `media`, `retention`, `opml`, `sync`). Entry `rss-downcast`.
+  `download`, `media`, `retention`, `opml`, `sync`, `audit`). Entry `rss-downcast`.
+  Design + data flow: `ARCHITECTURE.md`.
 - State: `~/.local/share/rss-downcast/downloads.db` (or `--db`).
   Tables `feeds`, `episodes` (FK CASCADE, `UNIQUE(feed_id, guid)`).
 - Env: local `.venv` (Python 3.14). Deps: typer, feedparser, httpx, mutagen.

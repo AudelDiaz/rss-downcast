@@ -3,7 +3,7 @@
 import logging
 import os
 import re
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 
 
 def parse_size(value):
@@ -56,7 +56,7 @@ def prune_feed(conn, feed_id, save_dir, keep=None, max_age=None, max_size=None, 
     cutoff = None
     if max_age is not None:
         if isinstance(max_age, timedelta):
-            cutoff = datetime.utcnow() - max_age
+            cutoff = datetime.now(UTC).replace(tzinfo=None) - max_age
         elif isinstance(max_age, datetime):
             cutoff = max_age
         else:

@@ -1,6 +1,6 @@
 """rss-downcast — download, manage and archive podcast episodes from RSS feeds."""
 
-__version__ = '2.0.0'
+__version__ = '2.0.1'
 
 USER_AGENT = f'rss-downcast/{__version__} (+https://github.com/AudelDiaz/rss-downcast)'
 

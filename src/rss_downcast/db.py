@@ -114,6 +114,17 @@ def list_feeds(conn):
     ).fetchall()
 
 
+def list_episodes(conn, feed_id=None):
+    """Return episode rows newest-first, optionally scoped to one feed."""
+    columns = 'episode_id, feed_id, guid, title, published, filepath, downloaded_at'
+    order = 'ORDER BY published DESC, episode_id DESC'
+    if feed_id is None:
+        return conn.execute(f'SELECT {columns} FROM episodes {order}').fetchall()
+    return conn.execute(
+        f'SELECT {columns} FROM episodes WHERE feed_id = ? {order}', (feed_id,)
+    ).fetchall()
+
+
 def get_feed_url_by_id(conn, feed_id):
     cursor = conn.cursor()
     cursor.execute('SELECT feed_url FROM feeds WHERE feed_id = ?', (feed_id,))

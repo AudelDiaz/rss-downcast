@@ -145,6 +145,12 @@ def run_sync(
                     'Episode with GUID %s already in database for this feed. Skipping.',
                     guid,
                 )
+                if os.path.exists(full_path):
+                    try:
+                        os.remove(full_path)
+                        logging.info('Removed orphaned download: %s', full_path)
+                    except OSError:
+                        logging.warning('Could not remove orphaned file: %s', full_path)
                 continue
             if full_path.lower().endswith('.mp3'):
                 set_mp3_tags(full_path, entry, feed)

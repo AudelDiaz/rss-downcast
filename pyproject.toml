@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "rss-downcast"
-version = "2.0.0"
+version = "2.0.1"
 description = "Download, manage and archive podcast episodes from RSS feeds"
 readme = "README.md"
 license = { text = "GPL-3.0-only" }

@@ -5,6 +5,32 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.0.1] - 2026-09-27
+
+### Fixed (review v2.0.1)
+- Retention flags: CLI flags now win over TOML defaults by parameter provenance,
+  so `--keep-last` works when the config sets `keep` (and vice versa); the
+  mutual-exclusion error only fires when both flags are on the command line, and
+  a config that sets both keys is a clear error. `--keep`/`--max-age`/
+  `--max-size` validation is shared by `sync` and `prune` (`--max-size` must be
+  `>= 1` byte everywhere).
+- Duplicate GUID no longer leaves the just-downloaded file orphaned on disk when
+  the episode INSERT fails.
+- `retention.prune_feed()` uses timezone-aware `datetime.now(UTC)` (stored
+  `published` values stay naive UTC).
+
+### Added
+- Library inspection commands: `status` (per-feed dashboard: episodes, on-disk
+  size, newest, missing files, orphan files, totals), `episodes list`
+  (`--feed-id`, `--limit`, `--missing`), and `verify` (`--fix` to drop rows whose
+  file is missing, `--remove-orphans` to delete untracked media files; exits
+  non-zero while findings remain). Backed by a new read-only `audit` module.
+- Batch flags `sync --all-feeds` and `prune --all-feeds` (mutually exclusive with
+  an explicit `URL`/`SAVE_DIR`/`--feed-id`); `sync` isolates per-feed failures and
+  exits non-zero if any feed failed.
+- CLI end-to-end integration tests (`sync` → fetch → download → prune) and
+  regression tests for flag precedence and orphan cleanup.
+
 ## [2.0.0] - 2026-09-19
 
 ### Changed (breaking)
@@ -20,14 +46,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `opml export|import`. No migration for v1 CLI flags or v1 `downloads.db`.
 - **httpx** replaces `requests` (streaming + retry kept; skips length-check on
   encoded bodies; local OSError no longer retried as network).
-- Deps mínimas directas (`typer`, `feedparser`, `httpx`, `mutagen`;
-  `requires-python >=3.11`); transitivas fuera de `requirements.txt`.
+- Minimal direct deps (`typer`, `feedparser`, `httpx`, `mutagen`;
+  `requires-python >=3.11`); transitive deps kept out of `requirements.txt`.
 
 ### Fixed (review v2)
-- Timezone-aware vs naive crash in selection/sort (todo normalizado a naive-UTC).
+- Timezone-aware vs naive crash in selection/sort (all normalized to naive UTC).
 - `None`/missing title no longer aborts sync (`untitled` fallback).
-- `published` stored via full date resolution (anchor incremental avanza con
-  fechas string-only); `entry.title` attribute access hardened.
+- `published` stored via full date resolution (the incremental anchor advances on
+  string-only dates); `entry.title` attribute access hardened.
 - `prune` parse errors are clean CLI errors; `--keep "5"` coercion;
   TOML-native dates accepted for `--since`; `verbose`/`quiet` honored from config;
   `prune_to_keep_last` returns counts; FK `ON DELETE CASCADE` + `row_factory=Row`
@@ -36,27 +62,44 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [1.1.0] - 2026-09-04
 
 ### Added
-- **Retention flexible**: flags `--keep N`, `--max-age DAYS` (e.g. `30d`), `--max-size SIZE` (e.g. `500M`, `2G`) via `prune_feed()`. Composable; protege ficheros compartidos y respeta `commonpath(save_dir)`. `prune_to_keep_last` ahora es wrapper `keep=1`.
-- **CRUD feeds + OPML**: `remove_feed()`, `export_opml()`, `import_opml()` con CLI `--remove-feed ID [--delete-files]`, `--export-opml FILE`, `--import-opml FILE`.
-- **Packaging instalable**: `pyproject.toml` `[project]` + `[build-system] hatchling` + `[project.scripts] rss-podcast-downloader = rss_podcast_downloader:main`; shim `rss_podcast_downloader.py` carga dinámica del script con guion.
-- **Config file TOML**: `find_config_path()` / `load_config()` con prioridad `--config` > `./rss-podcast-downloader.toml` > `XDG_CONFIG_HOME` > `~/.config/rss-podcast-downloader/config.toml`; sección `[defaults]`; CLI overridea config. Flags `--config FILE`, `--no-config`. Ejemplo en `config.example.toml`.
-- **Sync UX**: `--dry-run` (lista sin descargar ni escribir DB), soporte `audio/*` + `video/mp4` (antes solo `audio/mpeg`) vía `_is_audio_enclosure()`, anti-colisión `_unique_filepath()` sufijo `_2/_3`, `--verbose`/`--quiet`, truncado de filename >200 chars.
-- **Versioning**: `__version__ = '1.1.0'` + flag `--version` + `USER_AGENT` versionado.
+- **Flexible retention**: flags `--keep N`, `--max-age DAYS` (e.g. `30d`),
+  `--max-size SIZE` (e.g. `500M`, `2G`) via `prune_feed()`. Composable; protects
+  shared files and respects `commonpath(save_dir)`. `prune_to_keep_last` is now a
+  `keep=1` wrapper.
+- **Feeds CRUD + OPML**: `remove_feed()`, `export_opml()`, `import_opml()` with CLI
+  `--remove-feed ID [--delete-files]`, `--export-opml FILE`, `--import-opml FILE`.
+- **Installable packaging**: `pyproject.toml` `[project]` + `[build-system] hatchling`
+  + `[project.scripts] rss-podcast-downloader = rss_podcast_downloader:main`; the
+  `rss_podcast_downloader.py` shim dynamically loads the hyphenated script.
+- **TOML config file**: `find_config_path()` / `load_config()` with priority
+  `--config` > `./rss-podcast-downloader.toml` > `XDG_CONFIG_HOME` >
+  `~/.config/rss-podcast-downloader/config.toml`; `[defaults]` section; CLI
+  overrides config. Flags `--config FILE`, `--no-config`. Example in
+  `config.example.toml`.
+- **Sync UX**: `--dry-run` (lists without downloading or writing to the DB),
+  `audio/*` + `video/mp4` support (previously `audio/mpeg` only) via
+  `_is_audio_enclosure()`, anti-collision `_unique_filepath()` `_2/_3` suffix,
+  `--verbose`/`--quiet`, filename truncation >200 chars.
+- **Versioning**: `__version__ = '1.1.0'` + `--version` flag + versioned
+  `USER_AGENT`.
 
 ### Fixed
-- **FP-1**: `download_file` guarda `Content-Length` malformado (`ValueError`) como `None` en vez de abortar lote.
-- **FP-3**: `download_file` acepta `sleep_fn` inyectable para tests sin `time.sleep`.
-- **FP-4**: `save_text_file` genera `ep.txt` no `ep.mp3.txt` (strip ext) + `encoding='utf-8'`.
-- **FP-5**: Pins reproducibles `mutagen==1.48.1`, `pytest==9.1.1`, `ruff==0.16.6` en `requirements.txt` y `ci.yml`; `pyproject.toml:target-version py310`.
+- **FP-1**: `download_file` treats a malformed `Content-Length` (`ValueError`) as
+  `None` instead of aborting the batch.
+- **FP-3**: `download_file` accepts an injectable `sleep_fn` for tests without
+  `time.sleep`.
+- **FP-4**: `save_text_file` produces `ep.txt`, not `ep.mp3.txt` (strips ext) +
+  `encoding='utf-8'`.
+- **FP-5**: Reproducible pins `mutagen==1.48.1`, `pytest==9.1.1`, `ruff==0.16.6`
+  in `requirements.txt` and `ci.yml`; `pyproject.toml:target-version py310`.
 
 ### Changed
-- `pyproject.toml` ahora es fuente de verdad para dependencias y build; `rss_podcast_downloader.py` es módulo importable para `pipx`/`uv tool`.
+- `pyproject.toml` is now the source of truth for dependencies and build;
+  `rss_podcast_downloader.py` is an importable module for `pipx`/`uv tool`.
 
 ### Specs
-- Nuevos specs: `docs/specs/retention.md`, `docs/specs/feed-crud-opml.md`, `docs/specs/packaging-config.md`.
+- New specs: `docs/specs/retention.md`, `docs/specs/feed-crud-opml.md`,
+  `docs/specs/packaging-config.md`.
 
 ## [1.0.0] - 2026-02-02
-- Primera versión empaquetable con DB stateful, tracking multi-feed y tests iniciales.
-
-## [Unreleased]
-- Ver `git log` para cambios no publicados.
+- First installable version with stateful DB, multi-feed tracking and initial tests.
